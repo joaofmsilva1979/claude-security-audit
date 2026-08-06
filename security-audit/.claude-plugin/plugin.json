@@ -1,0 +1,10 @@
+{
+  "name": "security-audit",
+  "version": "0.2.0",
+  "description": "Two-skill security audit plugin: (1) local-audit — secrets scan, SAST, dependency CVEs, Claude plugin audit, and certificate generation for your own codebases; (2) security-audit — full 11-phase web application pentest covering recon through OWASP Top 10.",
+  "author": {
+    "name": "Joao Silva",
+    "email": "joao.silva@ciglesch.lu"
+  },
+  "keywords": ["security", "pentest", "audit", "owasp", "vulnerability", "secrets", "sast", "cve", "mac"]
+}

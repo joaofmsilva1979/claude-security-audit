@@ -1,0 +1,23 @@
+{
+  "skill_name": "local-audit",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "I have a Python project at /tmp/security-eval-fixture that I want to check before pushing to GitHub. Can you audit it for security issues?",
+      "expected_output": "A structured security report identifying: (1) .env committed to git history, (2) os.system() call in app.py, (3) hardcoded STRIPE_KEY in app.py, (4) SQL injection via string concatenation in app.py, (5) outdated/vulnerable dependencies in requirements.txt. Report should include severity ratings and specific fix instructions.",
+      "files": ["/tmp/security-eval-fixture"]
+    },
+    {
+      "id": 1,
+      "prompt": "I'm worried I might have accidentally committed my .env file to git in /tmp/security-eval-fixture. Can you check, and also scan the Python code for any dangerous patterns I should fix before my code review tomorrow?",
+      "expected_output": "Should confirm .env IS tracked in git history (not just current working tree), identify os.system() as dangerous, identify the hardcoded API key, and identify SQL injection. Should provide specific remediation commands.",
+      "files": ["/tmp/security-eval-fixture"]
+    },
+    {
+      "id": 2,
+      "prompt": "Run a full local security audit on /tmp/security-eval-fixture. Give me a complete report with all findings, fix what you can directly in the code, and if all critical and high issues are resolved, generate a security certificate.",
+      "expected_output": "Should run all 4 phases. Should fix os.system() to subprocess.run() in app.py, add .env to .gitignore if not present. Should NOT generate a certificate because critical issues (committed .env, hardcoded secret) cannot be auto-fixed (require credential rotation). Should explain why certificate cannot be issued.",
+      "files": ["/tmp/security-eval-fixture"]
+    }
+  ]
+}

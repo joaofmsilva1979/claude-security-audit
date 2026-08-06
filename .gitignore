@@ -1,0 +1,5 @@
+# Eval run outputs and grading artifacts (dev-only)
+local-audit-workspace/
+__pycache__/
+*.pyc
+.DS_Store

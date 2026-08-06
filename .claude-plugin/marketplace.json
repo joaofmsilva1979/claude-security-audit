@@ -1,0 +1,15 @@
+{
+  "name": "security-audit",
+  "plugins": [
+    {
+      "name": "security-audit",
+      "source": "./security-audit",
+      "description": "Two-skill security audit plugin for Mac developers: local-audit scans your own codebases for secrets, SAST issues, dependency CVEs, and Claude plugin misconfigurations; security-audit runs a full 11-phase web app pentest against remote targets.",
+      "version": "0.2.0"
+    }
+  ],
+  "owner": {
+    "name": "Joao Silva",
+    "email": "joao.silva@ciglesch.lu"
+  }
+}
