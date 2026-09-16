@@ -7,8 +7,9 @@ description: >
   for secrets", "check for hardcoded credentials", "dependency vulnerabilities",
   "is my .env committed", "SAST scan", "check my Claude plugins", "security check
   before pushing", "generate a security certificate", "check for os.system calls",
-  "am I leaking API keys". Covers the full local audit pipeline: secrets scan →
-  SAST → dependency CVEs → Claude plugin audit → report + optional certificate.
+  "am I leaking API keys", "prompt injection", "MCP security", "check my AI code".
+  Covers the full local audit pipeline: secrets scan → SAST → dependency CVEs →
+  Claude plugin audit → LLM/AI attack surfaces → report + optional certificate.
   Do NOT use for auditing live web apps or remote targets — use the security-audit
   skill for that instead.
 allowed-tools:
@@ -26,7 +27,7 @@ Act as a staff security engineer auditing code the user owns and wants to harden
 ## Workflow
 
 1. **Discover scope** — ask what to audit or default to the current directory + any git repos mentioned
-2. **Run phases 1–4** in order; skip phases that don't apply (e.g. no `package.json` → skip npm audit)
+2. **Run phases 1–5** in order; skip phases that don't apply (e.g. no `package.json` → skip npm audit; no AI/LLM code → skip phase 5)
 3. **Score findings** using the severity guide below
 4. **Deliver the report** — see `references/report-format.md`
 5. **Offer a remediation pass** — fix issues directly in code where safe to do so
@@ -201,6 +202,79 @@ grep -r --include="*.json" \
 | MCP server pointing to a remote, non-localhost URL (unknown author) | Medium |
 | Plugin requesting `Bash` tool with no clear justification | Medium |
 | Unknown plugin not from a recognized publisher | Info |
+
+---
+
+## Phase 5 — LLM & AI Attack Surfaces
+
+For codebases that use LLMs, MCP servers, or RAG pipelines. Skip if no AI components are present.
+
+### Prompt injection — user input into system prompts
+```bash
+# Python: f-strings or concat with user-controlled vars passed to LLM calls
+grep -rn --include="*.py" --exclude-dir=.git --exclude-dir=__pycache__ \
+  -E 'f["\x27].*\{.*(user|request|query|message|input|prompt|body)' . | head -20
+
+# JS/TS: template literals with user data near LLM calls
+grep -rn --include="*.ts" --include="*.js" --include="*.tsx" \
+  --exclude-dir=.git --exclude-dir=node_modules \
+  -E '`.*\$\{.*(user|request|query|message|input|prompt|body)' . | head -20
+
+# Direct string concat into messages/system_prompt arrays
+grep -rn --include="*.py" --include="*.ts" --include="*.js" \
+  --exclude-dir=.git --exclude-dir=node_modules \
+  -E '(system_prompt|messages)\s*(\+|\.append|\.push).*\+' . | head -20
+```
+
+### Tool calling without human approval gate
+```bash
+# LLM tool definitions that can write, delete, or send without a confirm step
+grep -rn --include="*.py" --include="*.ts" --include="*.js" \
+  --exclude-dir=.git --exclude-dir=node_modules \
+  -E '"(name|function)"\s*:\s*"(send_email|send_message|delete|write_file|execute_sql|run_command|shell)' \
+  . | head -20
+```
+
+### RAG pipelines — external URL fetch into prompt context
+```bash
+# Fetching external URLs and piping raw content into prompts (indirect injection vector)
+grep -rn --include="*.py" --exclude-dir=.git \
+  -E '(requests\.get|httpx\.get|urllib).*\n?.*(prompt|message|context|system)' . | head -10
+
+grep -rn --include="*.ts" --include="*.js" --exclude-dir=.git --exclude-dir=node_modules \
+  -E '(fetch|axios\.get)\(' . | head -10
+```
+
+### MCP server scope audit
+```bash
+# List all configured MCP servers with their commands/URLs
+echo "=== MCP servers (check for non-standard orgs or local paths) ==="
+cat ~/.claude/settings.json 2>/dev/null \
+  | jq -r '.mcpServers // {} | to_entries[] | "\(.key): \(.value.command // .value.url // "?")"'
+
+# Flag any MCP server with filesystem write or shell exec capability
+cat ~/.claude/settings.json 2>/dev/null \
+  | jq -r '.mcpServers // {} | to_entries[] | select(.value.command | strings | test("npx|node|python|sh|bash")) | "REVIEW: \(.key) → \(.value.command)"'
+```
+
+### Browser-leaked secrets (React / Next.js / Expo)
+```bash
+# NEXT_PUBLIC_, VITE_, REACT_APP_ prefix = shipped to every visitor's browser
+grep -rn --include="*.env*" --include="*.ts" --include="*.js" --include="*.tsx" \
+  --exclude-dir=.git --exclude-dir=node_modules \
+  -E '(NEXT_PUBLIC_|VITE_|REACT_APP_)(SECRET|KEY|TOKEN|PASSWORD|SERVICE_ROLE|PRIVATE)' \
+  . | head -20
+```
+
+**What to flag:**
+| Finding | Severity |
+|---------|----------|
+| User input directly concatenated into system prompt | High |
+| LLM tool that writes to DB / sends messages without human gate | High |
+| RAG pipeline fetching external URL without sanitization | Medium |
+| MCP server installed from random GitHub repo (not `@modelcontextprotocol/*` or known org) | Medium |
+| MCP server with `filesystem write` or `shell exec` scope | Medium |
+| `NEXT_PUBLIC_`/`VITE_`/`REACT_APP_` prefix on a real secret | Critical |
 
 ---
 
